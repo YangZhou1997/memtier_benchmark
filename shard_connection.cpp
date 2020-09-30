@@ -198,7 +198,10 @@ void shard_connection::setup_event(int sockfd) {
                 sockfd, ctx, BUFFEREVENT_SSL_CONNECTING, BEV_OPT_CLOSE_ON_FREE);
     } else {
 #endif
-        m_bev = bufferevent_socket_new(m_event_base, sockfd, BEV_OPT_CLOSE_ON_FREE);
+        // @yang, trying to enable socket reuse. 
+        // @yang, okay, fine, BEV_OPT_CLOSE_ON_FREE will not close the underlying fd -- this is a bug of libevent. 
+        // m_bev = bufferevent_socket_new(m_event_base, sockfd, BEV_OPT_CLOSE_ON_FREE);
+        m_bev = bufferevent_socket_new(m_event_base, sockfd, 0);
 #ifdef USE_TLS
     }
 #endif
@@ -231,11 +234,16 @@ int shard_connection::setup_socket(struct connect_info* addr) {
         int error = setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (void *) &flags, sizeof(flags));
         assert(error == 0);
 
+        // @yang, adding SO_REUSEADDR to handle non-persistent connections. 
+        error = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (void *) &flags, sizeof(flags));
+        assert(error == 0);
+
         error = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (void *) &ling, sizeof(ling));
         assert(error == 0);
 
         error = setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (void *) &flags, sizeof(flags));
         assert(error == 0);
+
     }
 
     // set non-blocking behavior
@@ -285,6 +293,9 @@ int shard_connection::connect(struct connect_info* addr) {
 void shard_connection::disconnect() {
     if (m_bev) {
         bufferevent_free(m_bev);
+        // @yang, explicitly close the underlying socket. 
+        evutil_socket_t sockfd = bufferevent_getfd(m_bev);
+        evutil_closesocket(sockfd);
     }
     m_bev = NULL;
 
