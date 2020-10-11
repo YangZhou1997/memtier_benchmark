@@ -1040,6 +1040,7 @@ run_stats run_benchmark(int run_id, benchmark_config* cfg, object_generator* obj
     // prepare threads data
     std::vector<cg_thread*> threads;
     for (unsigned int i = 0; i < cfg->threads; i++) {
+        // @yang, each thread has a cg_thread which is a event_base. 
         cg_thread* t = new cg_thread(i, cfg, obj_gen);
         assert(t != NULL);
 
@@ -1119,7 +1120,13 @@ run_stats run_benchmark(int run_id, benchmark_config* cfg, object_generator* obj
             progress = 100.0 * total_ops / ((double)cfg->requests*cfg->clients*cfg->threads);
         else
             progress = 100.0 * (duration / 1000000.0)/cfg->test_time;
-
+        //@yang, adding check when time exceeds.
+        if(progress >= 100.0){
+            for (std::vector<cg_thread*>::iterator i = threads.begin(); i != threads.end(); i++) {
+                (*i)->m_finished = true;
+            }
+            active_threads = 0;
+        }
         fprintf(stderr, "[RUN #%u %.0f%%, %3u secs] %2u threads: %11lu ops, %7lu (avg: %7lu) ops/sec, %s/sec (avg: %s/sec), %5.2f (avg: %5.2f) msec latency\r",
             run_id, progress, (unsigned int) (duration / 1000000), active_threads, total_ops, cur_ops_sec, ops_sec, cur_bytes_str, bytes_str, cur_latency, avg_latency);
     } while (active_threads > 0);

@@ -207,6 +207,7 @@ void shard_connection::setup_event(int sockfd) {
 #endif
 
     assert(m_bev != NULL);
+    // @yang, here setup the read event and connection event for this m_bev/socket. 
     bufferevent_setcb(m_bev, cluster_client_read_handler,
         NULL, cluster_client_event_handler, (void *)this);
     m_protocol->set_buffers(bufferevent_get_input(m_bev), bufferevent_get_output(m_bev));
@@ -449,16 +450,19 @@ void shard_connection::process_response(void)
     }
 
     if (m_config->reconnect_interval > 0 && responses_handled) {
-        if ((m_conns_manager->get_reqs_processed() % m_config->reconnect_interval) == 0) {
+        // @yang, adding finished() check to make sure no connect() will be made after time exceeds
+        if ((m_conns_manager->get_reqs_processed() % m_config->reconnect_interval) == 0 && !m_conns_manager->finished()) {
             assert(m_pipeline->size() == 0);
             benchmark_debug_log("reconnecting, m_reqs_processed = %u\n", m_conns_manager->get_reqs_processed());
+            // benchmark_error_log("reconnecting, m_reqs_processed = %u\n", m_conns_manager->get_reqs_processed());
             
             // client manage connection & disconnection of shard
             m_conns_manager->disconnect();
+            //@yang, this will trigger connect_cb, and call fill_pipeline()
             ret = m_conns_manager->connect();
             assert(ret == 0);
-
-            return;
+            
+            // return;
         }
     }
 

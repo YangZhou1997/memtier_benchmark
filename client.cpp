@@ -547,6 +547,7 @@ client_group::~client_group(void)
 
 int client_group::create_clients(int num)
 {
+    // @yang, each thread has multiple clients. 
     for (int i = 0; i < num; i++) {
         client* c;
 
