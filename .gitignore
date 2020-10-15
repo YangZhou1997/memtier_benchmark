@@ -29,3 +29,4 @@ stamp-h1
 *.hgrm
 *.txt
 __pycache__
+deps/hdr_histogram/.dirstamp
